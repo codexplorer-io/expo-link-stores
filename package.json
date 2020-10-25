@@ -1,5 +1,5 @@
 {
-  "name": "@marko/expo-link-stores",
+  "name": "@codexporer.io/expo-link-stores",
   "version": "1.0.0",
   "main": "src/index.js",
   "peerDependencies": {
