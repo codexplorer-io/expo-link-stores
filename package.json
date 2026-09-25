@@ -2,6 +2,7 @@
   "name": "@codexporer.io/expo-link-stores",
   "version": "1.0.0",
   "main": "src/index.js",
+  "types": "src/index.d.ts",
   "peerDependencies": {
     "lodash": "*"
   }
