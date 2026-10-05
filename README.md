@@ -20,7 +20,7 @@ import { linkStores } from '@codexporer.io/expo-link-stores';
 import { useLoadingDialogActions } from '@codexporer.io/expo-loading-dialog';
 
 export function RootAppInitializer() {
-  const [, loadingDialogActions] = useLoadingDialogActions();
+  const loadingDialogActions = useLoadingDialogActions();
 
   useEffect(() => {
     linkStores({
