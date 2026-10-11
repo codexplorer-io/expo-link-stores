@@ -6,44 +6,35 @@ description: Instructions for cross-linking react-sweet-state stores across deco
 # `@codexporer.io/expo-link-stores` Skill
 
 ## Overview
-`@codexporer.io/expo-link-stores` facilitates cross-store communications in decoupled submodules using `react-sweet-state` without creating circular package dependencies.
+`@codexporer.io/expo-link-stores` enables cross-linking `react-sweet-state` store actions across decoupled packages without circular dependencies or tight package coupling.
 
 ---
 
-## Primary Exports
-
-```typescript
-import { 
-  linkStores, 
-  initialState, 
-  actions, 
-  selector 
-} from '@codexporer.io/expo-link-stores';
-```
+## When to Use
+- Allowing independent packages (like image pickers, camera modules) to trigger global dialogs (like `loadingDialog` or `messageDialog`) without importing them directly.
+- Orchestrating multi-package workflows through sweet-state store actions.
 
 ---
 
-## Root Setup & Implementation Pattern
+## Required Setup
 
-Call `linkStores` once at app startup inside the root container (e.g. `_layout.tsx` or `App.tsx`):
+Register linked stores at root application bootstrap:
 
-```typescript
-import React, { useEffect } from 'react';
+```tsx
+import { useEffect } from 'react';
 import { linkStores } from '@codexporer.io/expo-link-stores';
 import { useLoadingDialogActions } from '@codexporer.io/expo-loading-dialog';
 import { useMessageDialogActions } from '@codexporer.io/expo-message-dialog';
 
-export function RootStoreLinker() {
+export function StoreLinker() {
   const [, loadingDialogActions] = useLoadingDialogActions();
   const [, messageDialogActions] = useMessageDialogActions();
 
   useEffect(() => {
-    if (loadingDialogActions || messageDialogActions) {
-      linkStores({
-        loadingDialog: loadingDialogActions,
-        messageDialog: messageDialogActions,
-      });
-    }
+    linkStores({
+      loadingDialog: loadingDialogActions,
+      messageDialog: messageDialogActions
+    });
   }, [loadingDialogActions, messageDialogActions]);
 
   return null;
@@ -52,35 +43,20 @@ export function RootStoreLinker() {
 
 ---
 
-## How Decoupled Packages Consume Linked Stores
+## API Reference
 
-Within submodules (e.g. `@codexporer.io/expo-image-picker`), include the base linked store state, actions, and selector in the sweet-state Store definition:
+### Functions & Exports
 
-```typescript
-import { createStore } from 'react-sweet-state';
-import { initialState, actions } from '@codexporer.io/expo-link-stores';
-
-const Store = createStore({
-  initialState: {
-    ...initialState,
-    // module specific state
-  },
-  actions: {
-    ...actions,
-    uploadFile: () => ({ dispatch }) => {
-      // Safely access linked store:
-      const loadingDialog = dispatch(actions.getLinkedStore('loadingDialog'));
-      if (loadingDialog) {
-        loadingDialog.show({ message: 'Uploading...' });
-      }
-    }
-  }
-});
-```
+| Export | Type | Description |
+| :--- | :--- | :--- |
+| `linkStores` | `(storesMap: Record<string, any>) => void` | Broadcasts store action map across all registered stores |
+| `initialState` | `{ linkedStores?: Record<string, any> }` | Store state slice to spread into store definition |
+| `actions.getLinkedStore` | `(name: string) => ({ getState }) => any` | Action helper retrieving a specific linked store |
+| `actions.getLinkedStores` | `() => ({ getState }) => any` | Action helper returning all linked stores |
+| `selector` | `<T>(state: T) => T` | Selector removing `linkedStores` to prevent unnecessary re-renders |
 
 ---
 
-## Implementation Rules
-1. **Initialize at Root**: Always call `linkStores` during app bootstrap when linking shared actions like `loadingDialog` and `messageDialog`.
-2. **Safe Invocation**: Always verify that `getLinkedStore('<name>')` exists before invoking methods in decoupled submodules.
-3. **No Circular Dependencies**: Use linked stores instead of importing concrete store instances across decoupled submodule boundaries.
+## Critical Rules & Guidelines
+1. **Always Link at Boot**: Call `linkStores()` at application start before decoupled packages attempt to access linked store actions.
+2. **Safe Optional Chaining**: In submodules consuming linked actions, always check `linkedStores?.[name]` before calling methods.
