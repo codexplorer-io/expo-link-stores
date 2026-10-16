@@ -1,22 +1,41 @@
 # `@codexporer.io/expo-link-stores`
 
-Cross-linking utility for `react-sweet-state` stores across decoupled packages, enabling store actions to communicate without circular dependencies or tight package coupling.
+Cross-linking state utility designed for `react-sweet-state` stores across decoupled packages, enabling store actions to communicate without circular dependencies or tight package coupling.
 
-## Installation & Peer Dependencies
+---
+
+## Peer Dependencies
+
+All peer dependencies are required and must be installed in consuming projects (none are optional):
+- `lodash`: `*`
+
+---
+
+## Installation
 
 ```bash
 yarn add @codexporer.io/expo-link-stores
 ```
 
-Peer dependencies:
-- `lodash` (`*`)
-- `react-sweet-state` (`*`)
+---
+
+## Architecture Overview
+
+When building modular React Native/Expo architectures, feature packages (such as image pickers or media creators) often need to invoke global actions (such as dialogs or snackbars) without directly importing or depending on those UI packages.
+
+`@codexporer.io/expo-link-stores` solves this by providing:
+1. `initialState`: Declares `{ linkedStores: undefined }` on store definitions.
+2. `actions`: Provides `setLinkedStores`, `getLinkedStores`, and `getLinkedStore(storeName)`.
+3. `selector`: Clones state and strips `linkedStores` so consuming React components do not trigger unnecessary re-renders when other linked store instances update.
+4. `linkStores`: Iterates over a dictionary of store actions and invokes `setLinkedStores(storesMap)` on each, establishing bidirectional links.
+
+---
 
 ## Quick Start
 
 ### 1. Register Stores at Application Root
 
-At application startup, register decoupled stores using `linkStores()`:
+At application startup (e.g., inside an initializer or layout component), link decoupled stores using `linkStores()`:
 
 ```tsx
 import { useEffect } from 'react';
@@ -39,17 +58,17 @@ export function StoreLinker() {
 }
 ```
 
-### 2. Consuming Linked Stores in Submodules
+### 2. Integrating in Decoupled Stores
 
-Submodules that integrate `@codexporer.io/expo-link-stores` into their own `react-sweet-state` stores can access linked actions:
+In packages defining a `react-sweet-state` store:
 
 ```tsx
+import { createStore } from 'react-sweet-state';
 import {
   initialState as linkedStoresInitialState,
   actions as linkedStoresActions,
   selector as linkedStoresSelector
 } from '@codexporer.io/expo-link-stores';
-import { createStore } from 'react-sweet-state';
 
 export const Store = createStore({
   initialState: {
@@ -59,44 +78,56 @@ export const Store = createStore({
   actions: {
     ...linkedStoresActions,
     fetchMedia: () => async ({ getState, dispatch }) => {
-      // Access decoupled loading dialog without direct dependency
+      // Access decoupled loading dialog actions without direct package dependency
       const loadingDialog = getState().linkedStores?.loadingDialog;
-      loadingDialog?.show({ message: 'Fetching images...' });
+      loadingDialog?.show?.({ message: 'Fetching images...' });
 
       try {
         const items = await api.getMedia();
         dispatch(setItems(items));
       } finally {
-        loadingDialog?.hide();
+        loadingDialog?.hide?.();
       }
     }
   }
 });
 ```
 
+---
+
 ## API Reference
 
-### `linkStores(storesMap: Record<string, StoreActions>): void`
-Registers an object dictionary of store actions. Iterates through each store and invokes `setLinkedStores(storesMap)` to establish bidirectional links.
+### `linkStores(linkedStores: Record<string, any>): void`
 
-| Parameter | Type | Description |
-| :--- | :--- | :--- |
-| `storesMap` | `Record<string, any>` | Map of store names to store action objects |
+Broadcasts a map of store action objects across all stores in the map by calling `setLinkedStores(linkedStores)` on each:
+
+```ts
+linkStores({
+  loadingDialog: loadingDialogActions,
+  messageDialog: messageDialogActions
+});
+```
+
+---
 
 ### Store Helper Exports
 
 | Export | Type | Description |
 | :--- | :--- | :--- |
-| `initialState` | `{ linkedStores?: Record<string, any> }` | Initial state slice to spread into a sweet-state store |
-| `actions.setLinkedStores` | `(stores: any) => ({ setState }) => void` | Action saving linked stores map into local store state |
-| `actions.getLinkedStores` | `() => ({ getState }) => any` | Action returning all linked stores |
-| `actions.getLinkedStore` | `(storeName: string) => ({ getState }) => any` | Action retrieving a specific linked store action object |
-| `selector` | `<T>(state: T) => T` | State selector omitting `linkedStores` to avoid re-render loops |
+| `initialState` | `{ linkedStores?: Record<string, any> }` | Initial state slice defining `{ linkedStores: undefined }` |
+| `actions.setLinkedStores` | `(linkedStores: any) => ({ setState }) => void` | Action saving the linked stores dictionary into store state |
+| `actions.getLinkedStores` | `() => ({ getState }) => any` | Action returning all linked stores dictionary |
+| `actions.getLinkedStore` | `(store: string) => ({ getState }) => any` | Action returning a specific linked store's action object by key |
+| `selector` | `<T>(state: T) => T` | Selector that clones state and removes `linkedStores` to prevent re-render cascading |
+
+---
 
 ## Guidelines
 
-1. **One-Time Linking**: Register all global stores once during application boot (e.g. inside an initializer component mounted inside the root ThemeProvider).
-2. **Safe Optional Chaining**: When consuming linked store actions in submodules, always use optional chaining (`getState().linkedStores?.<name>?.action?.()`) to guard against uninitialized states in tests or standalone runs.
+1. **One-Time Linking**: Register all global stores once during application boot (e.g. inside an initializer component mounted near the app root).
+2. **Safe Optional Chaining**: When consuming linked store actions in submodules, always use optional chaining (`getState().linkedStores?.<name>?.action?.()`) to guard against uninitialized states during isolated testing or standalone runs.
+
+---
 
 ## License
 
